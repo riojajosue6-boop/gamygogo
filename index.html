@@ -9,11 +9,21 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { background-color: #0f172a; color: white; font-family: 'Inter', sans-serif; }
-        .neon-border { border: 2px solid #facc15; box-shadow: 0 0 15px #facc15; }
-        .game-card { transition: all 0.3s ease; border: 1px solid #1e293b; background: #111827; }
-        .game-card:hover { transform: translateY(-5px); border-color: #facc15; box-shadow: 0 0 10px rgba(250, 204, 21, 0.3); }
-        .game-container { position: relative; padding-bottom: 56.25%; height: 0; overflow: hidden; background: #000; border-radius: 12px; }
+        /* MEJORA: Contenedor de juego más alto para celulares */
+        .game-container { 
+            position: relative; 
+            padding-bottom: 75%; /* Antes era 56%, ahora es 75% (más alto) */
+            height: 0; 
+            overflow: hidden; 
+            background: #000; 
+            border-radius: 12px; 
+        }
+        @media (min-width: 768px) {
+            .game-container { padding-bottom: 50%; } /* En PC se mantiene normal para no ser gigante */
+        }
         .game-container iframe { position: absolute; top: 0; left: 0; width: 100%; height: 100%; border: none; }
+        .game-card { transition: all 0.3s ease; border: 1px solid #1e293b; background: #111827; }
+        .game-card:hover { transform: translateY(-5px); border-color: #facc15; }
     </style>
 </head>
 <body class="p-4 md:p-8">
