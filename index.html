@@ -1,29 +1,23 @@
 <script>
-        // 1. Cargar los juegos directamente desde la API oficial sin pasar por el servidor
+        // Cargar los juegos llamando a nuestro servidor puente en Railway
         document.addEventListener("DOMContentLoaded", async () => {
             const grid = document.getElementById('grid-juegos');
-            
-            // Usamos la URL directa forzando formato JSON y limitada a 50 juegos
-            const urlApiDirecta = 'https://gamemonetize.com/feed.php?format=json&num=50&page=1';
 
             try {
-                const response = await fetch(urlApiDirecta);
-                const juegos = await response.json();
+                // Llamamos a nuestra propia API interna de Railway (libre de CORS)
+                const response = await fetch('/api/juegos');
+                if (!response.ok) throw new Error('Error en el servidor');
+                
+                const listaFinal = await response.json();
 
-                // Asegurar que leemos el listado correcto si viene envuelto
-                const listaFinal = Array.isArray(juegos) ? juegos : (juegos.juegos || Object.values(juegos));
+                grid.innerHTML = ""; // Limpiar pantalla blanca
 
-                // Limpiar el contenedor por si acaso
-                grid.innerHTML = "";
-
-                // Recorremos la lista masiva que nos dio la API directamente
+                // Recorremos y pintamos las tarjetas de juegos automáticamente
                 listaFinal.forEach(juego => {
-                    // Validamos que el juego tenga los datos mínimos requeridos
                     if (juego && (juego.url || juego.id)) {
                         const card = document.createElement('div');
                         card.className = "game-card p-3 rounded-xl cursor-pointer flex flex-col justify-between";
                         
-                        // Si no trae URL directa, usamos la estructura estándar de reproducción de ellos
                         const juegoUrl = juego.url || `https://html5.gamemonetize.co/${juego.id}/`;
                         const juegoThumb = juego.thumb || juego.image || 'https://placehold.co/512x384/333/fff?text=Juego';
 
@@ -37,14 +31,12 @@
                     }
                 });
             } catch (error) {
-                console.error("Error al pintar el catálogo directo:", error);
-                grid.innerHTML = "<p class='col-span-full text-center text-red-500'>Error al conectar con el servidor de juegos. Inténtalo más tarde.</p>";
+                console.error("Error al pintar el catálogo:", error);
+                grid.innerHTML = "<p class='col-span-full text-center text-red-500'>Error al cargar los juegos en Railway. Inténtalo más tarde.</p>";
             }
         });
 
-        // 2. Función para reproducir el juego y activar tu monetización
         function cambiarJuego(url, nombre) {
-            // 🔥 MONETIZACIÓN AUTOMÁTICA: Tu script de Monetag se ejecuta al hacer clic aquí.
             const pantalla = document.getElementById('pantalla-principal');
             const titulo = document.getElementById('titulo-actual');
             
