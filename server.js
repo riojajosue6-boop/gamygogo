@@ -5,26 +5,38 @@ const https = require('https');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Servir tus archivos estáticos (HTML, CSS, JS) automáticamente
 app.use(express.static(__dirname));
 
-// RUTA PUENTE CORREGIDA: Obtiene el feed de GameMonetize de forma nativa sin librerías externas
+// RUTA PUENTE CORREGIDA: Desempaqueta el formato de GameMonetize correctamente
 app.get('/api/juegos', (req, res) => {
     const url = 'https://gamemonetize.com/feed.php?format=json&page=1';
 
     https.get(url, (apiRes) => {
         let data = '';
 
-        // Ir acumulando los fragmentos de información
         apiRes.on('data', (chunk) => {
             data += chunk;
         });
 
-        // Cuando termine de recibir todo, procesarlo y mandarlo al cliente
         apiRes.on('end', () => {
             try {
-                const juegos = JSON.parse(data);
-                res.json(juegos);
+                const respuestaRaw = JSON.parse(data);
+                
+                // DETECTAR Y DESEMPAQUETAR:
+                // Si la respuesta ya es una lista, la usamos. Si viene envuelta, extraemos la lista.
+                let listaJuegos = Array.isArray(respuestaRaw) ? respuestaRaw : [];
+                
+                if (!Array.isArray(respuestaRaw) && respuestaRaw.juegos) {
+                    listaJuegos = respuestaRaw.juegos;
+                } else if (!Array.isArray(respuestaRaw) && typeof respuestaRaw === 'object') {
+                    // Si viene como objeto con claves numéricas o propiedades, lo convertimos a Array
+                    listaJuegos = Object.values(respuestaRaw);
+                }
+
+                // Asegurar que solo mandamos elementos que tengan url y título válidos
+                const juegosLimpios = listaJuegos.filter(j => j && (j.url || j.id));
+
+                res.json(juegosLimpios);
             } catch (error) {
                 console.error('Error al procesar el JSON de GameMonetize:', error);
                 res.status(500).json({ error: 'Formato de datos inválido' });
@@ -33,15 +45,14 @@ app.get('/api/juegos', (req, res) => {
 
     }).on('error', (err) => {
         console.error('Error en la conexión con GameMonetize:', err.message);
-        res.status(500).json({ error: 'No se pudo conectar con el proveedor de juegos' });
+        res.status(500).json({ error: 'No se pudo conectar con el proveedor' });
     });
 });
 
-// Ruta principal para cargar tu portada de GamyGoGo
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.listen(PORT, () => {
-    console.log(`¡GamyGoGo corriendo en piloto automático sin base de datos en el puerto ${PORT}!`);
+    console.log(`¡GamyGoGo corriendo en piloto automático en el puerto ${PORT}!`);
 });
