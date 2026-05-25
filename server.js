@@ -7,9 +7,8 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static(__dirname));
 
-// RUTA PUENTE ABSOLUTA: Lee el XML forzado de GameMonetize y lo convierte a formato limpio
 app.get('/api/juegos', (req, res) => {
-    // Usamos el enlace tal como te lo da la plataforma originalmente
+    // Usamos el feed original en XML (format=0) con 50 juegos
     const url = 'https://gamemonetize.com/feed.php?format=0&num=50&page=1';
 
     https.get(url, (apiRes) => {
@@ -23,42 +22,59 @@ app.get('/api/juegos', (req, res) => {
             try {
                 const juegos = [];
                 
-                // Cortamos el XML en bloques por cada etiqueta <game>
+                // Cortamos por cada bloque de juego (<game> ... </game>)
                 const gameMatches = data.match(/<game>([\s\S]*?)<\/game>/g);
                 
                 if (gameMatches) {
                     gameMatches.forEach(gameXml => {
-                        // Extractor casero de etiquetas XML sin instalar nada extra
-                        const getTag = (tag) => {
-                            const regex = new RegExp(`<${tag}>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\/${tag}>`);
-                            const match = gameXml.match(regex);
-                            return match ? match[1] : '';
+                        // Extractor mejorado que busca variaciones de etiquetas comunes en XML
+                        const extract = (tags) => {
+                            for (let tag of tags) {
+                                const regex = new RegExp(`<${tag}>(?:<!\\[CDATA\\[)?(.*?)(?:\\]\\]>)?<\/${tag}>`, 'i');
+                                const match = gameXml.match(regex);
+                                if (match && match[1].trim()) return match[1].trim();
+                            }
+                            return '';
                         };
 
-                        const id = getTag('id');
-                        // Si no hay URL directa, armamos el iframe estándar de ellos
-                        const urlJuego = getTag('url') || `https://html5.gamemonetize.co/${id}/`;
+                        // Extraemos los datos buscando nombres alternativos de etiquetas
+                        const id = extract(['id', 'code']);
+                        const title = extract(['name', 'title', 'heading']) || 'Juego Gratis';
+                        const thumb = extract(['thumb', 'image', 'picture']) || 'https://placehold.co/512x384/333/fff?text=Juego';
+                        
+                        // Si no viene la URL del juego, la armamos dinámicamente con su ID
+                        let urlJuego = extract(['url', 'link']);
+                        if (!urlJuego && id) {
+                            urlJuego = `https://html5.gamemonetize.co/${id}/`;
+                        }
 
-                        juegos.push({
-                            id: id,
-                            title: getTag('name') || getTag('title') || 'Juego Gratis',
-                            thumb: getTag('thumb') || getTag('image') || 'https://placehold.co/512x384/333/fff?text=Juego',
-                            url: urlJuego
-                        });
+                        // Solo agregamos el juego si logramos rescatar un ID o una URL válida
+                        if (id || urlJuego) {
+                            juegos.push({ id, title, thumb, url: urlJuego });
+                        }
                     });
                 }
 
-                // Le mandamos la lista limpia y masticada al frontend
+                // Mandamos la lista final (si por alguna razón está vacía, mandamos un juego de respaldo para comprobar)
+                if (juegos.length === 0) {
+                    juegos.push({
+                        id: "cihth2bbe2a0ntw3ylj8srfz268e4nty",
+                        title: "Carrera de Reliquias (Respaldo)",
+                        thumb: "https://img.gamemonetize.com/cihth2bbe2a0ntw3ylj8srfz268e4nty/512x384.jpg",
+                        url: "https://html5.gamemonetize.co/cihth2bbe2a0ntw3ylj8srfz268e4nty/"
+                    });
+                }
+
                 res.json(juegos);
 
             } catch (error) {
-                console.error('Error al procesar el feed XML:', error.message);
-                res.status(500).json({ error: 'Error al digerir los juegos' });
+                console.error('Error procesando XML:', error.message);
+                res.status(500).json({ error: 'Error interno al procesar catálogo' });
             }
         });
 
     }).on('error', (err) => {
-        console.error('Error de red con GameMonetize:', err.message);
+        console.error('Error de red:', err.message);
         res.status(500).json({ error: 'Error de conexión' });
     });
 });
@@ -68,5 +84,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`¡GamyGoGo blindado corriendo en el puerto ${PORT}!`);
+    console.log(`GamyGoGo corriendo en puerto ${PORT}`);
 });
