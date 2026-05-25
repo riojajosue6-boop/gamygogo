@@ -7,10 +7,10 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static(__dirname));
 
-// RUTA DIAGNÓSTICO: Nos va a mostrar el JSON real en pantalla
+// RUTA PUENTE: Ahora sí jala JSON real y solo 50 juegos para no estresarse
 app.get('/api/juegos', (req, res) => {
-    // Forzamos el formato JSON directo en la API de GameMonetize
-    const url = 'https://gamemonetize.com/feed.php?format=json&page=1';
+    // 🔥 CORRECCIÓN CRUCIAL: format=json & num=50
+    const url = 'https://gamemonetize.com/feed.php?format=json&num=50&page=1';
 
     https.get(url, (apiRes) => {
         let data = '';
@@ -21,22 +21,21 @@ app.get('/api/juegos', (req, res) => {
 
         apiRes.on('end', () => {
             try {
-                // Mandamos el texto crudo tal como llega de GameMonetize para analizarlo
-                const jsonParseado = JSON.parse(data);
+                // Ahora que viene en JSON real, el servidor lo procesa en milisegundos
+                const juegos = JSON.parse(data);
                 
-                // Si es un Array directo, genial. Si no, mandamos el objeto para ver sus nombres
-                res.json(jsonParseado);
+                // GameMonetize a veces manda la lista directa o metida en una propiedad
+                const listaFinal = Array.isArray(juegos) ? juegos : (juegos.juegos || Object.values(juegos));
+                
+                res.json(listaFinal);
             } catch (error) {
-                // Si ni siquiera es un JSON válido, mostramos el texto plano roto
-                res.status(500).send({ 
-                    error: "GameMonetize no mandó un JSON válido", 
-                    loQueLlego: data.substring(0, 500) 
-                });
+                console.error('Error al procesar el JSON real:', error);
+                res.status(500).json({ error: 'El proveedor no devolvió el formato esperado.' });
             }
         });
 
     }).on('error', (err) => {
-        res.status(500).json({ error: 'Error de conexión', detalle: err.message });
+        res.status(500).json({ error: 'Error de conexión con GameMonetize' });
     });
 });
 
@@ -45,5 +44,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor GamyGoGo escuchando en puerto ${PORT}`);
+    console.log(`GamyGoGo activo en puerto ${PORT}`);
 });
