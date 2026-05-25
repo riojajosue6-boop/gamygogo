@@ -1,7 +1,19 @@
 <script>
         // Cargar los juegos llamando a nuestro servidor puente en Railway
         document.addEventListener("DOMContentLoaded", async () => {
-            const grid = document.getElementById('grid-juegos');
+            // Buscamos tu grilla de juegos (por ID o intentando encontrar el contenedor de las tarjetas)
+            let grid = document.getElementById('grid-juegos');
+            
+            // SEGURO ALFA: Si no encuentra el ID, busca el primer contenedor que tenga la grilla de Tailwind
+            if (!grid) {
+                grid = document.querySelector('.grid');
+            }
+
+            // Si a pesar de todo no encuentra nada, dejamos un aviso en consola y salimos para no colapsar
+            if (!grid) {
+                console.error("No se encontró el contenedor del catálogo en el HTML.");
+                return;
+            }
 
             try {
                 // Llamamos a nuestra propia API interna de Railway (libre de CORS)
@@ -10,12 +22,15 @@
                 
                 const listaFinal = await response.json();
 
-                grid.innerHTML = ""; // Limpiar pantalla blanca
+                // Limpiamos el catálogo viejo de forma segura
+                grid.innerHTML = ""; 
 
                 // Recorremos y pintamos las tarjetas de juegos automáticamente
                 listaFinal.forEach(juego => {
                     if (juego && (juego.url || juego.id)) {
                         const card = document.createElement('div');
+                        
+                        // Respetamos tus clases exactas de modo oscuro de GamyGoGo
                         card.className = "game-card p-3 rounded-xl cursor-pointer flex flex-col justify-between";
                         
                         const juegoUrl = juego.url || `https://html5.gamemonetize.co/${juego.id}/`;
@@ -32,7 +47,7 @@
                 });
             } catch (error) {
                 console.error("Error al pintar el catálogo:", error);
-                grid.innerHTML = "<p class='col-span-full text-center text-red-500'>Error al cargar los juegos en Railway. Inténtalo más tarde.</p>";
+                grid.innerHTML = "<p class='col-span-full text-center text-red-500 font-bold p-4'>Error al conectar con el servidor de juegos.</p>";
             }
         });
 
@@ -40,8 +55,8 @@
             const pantalla = document.getElementById('pantalla-principal');
             const titulo = document.getElementById('titulo-actual');
             
-            pantalla.src = url;
-            titulo.innerHTML = '<span class="w-3 h-8 bg-yellow-400 mr-3 rounded-full"></span> JUGANDO: ' + nombre.toUpperCase();
+            if (pantalla) pantalla.src = url;
+            if (titulo) titulo.innerHTML = '<span class="w-3 h-8 bg-yellow-400 mr-3 rounded-full"></span> JUGANDO: ' + nombre.toUpperCase();
             
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
