@@ -5,37 +5,39 @@ const https = require('https');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Servir tus archivos estáticos
 app.use(express.static(__dirname));
 
-// RUTA PUENTE: Ahora sí jala JSON real y solo 50 juegos para no estresarse
+// RUTA PUENTE SEGURA: Rompe el bloqueo de CORS jalando los datos desde el servidor
 app.get('/api/juegos', (req, res) => {
-    // 🔥 CORRECCIÓN CRUCIAL: format=json & num=50
+    // URL oficial forzando el formato JSON y pidiendo 50 juegos
     const url = 'https://gamemonetize.com/feed.php?format=json&num=50&page=1';
 
     https.get(url, (apiRes) => {
-        let data = '';
+        let rawData = '';
 
         apiRes.on('data', (chunk) => {
-            data += chunk;
+            rawData += chunk;
         });
 
         apiRes.on('end', () => {
             try {
-                // Ahora que viene en JSON real, el servidor lo procesa en milisegundos
-                const juegos = JSON.parse(data);
+                // Parseamos los datos que llegaron
+                const juegos = JSON.parse(rawData);
                 
-                // GameMonetize a veces manda la lista directa o metida en una propiedad
+                // GameMonetize a veces los envuelve, nos aseguramos de mandar el Array limpio
                 const listaFinal = Array.isArray(juegos) ? juegos : (juegos.juegos || Object.values(juegos));
                 
+                // Respondemos con éxito al navegador
                 res.json(listaFinal);
-            } catch (error) {
-                console.error('Error al procesar el JSON real:', error);
-                res.status(500).json({ error: 'El proveedor no devolvió el formato esperado.' });
+            } catch (e) {
+                console.error("Error al procesar JSON:", e.message);
+                res.status(500).json({ error: "Error al procesar el catálogo de juegos" });
             }
         });
-
     }).on('error', (err) => {
-        res.status(500).json({ error: 'Error de conexión con GameMonetize' });
+        console.error("Error en petición HTTPS:", err.message);
+        res.status(500).json({ error: "No se pudo conectar con el proveedor de juegos" });
     });
 });
 
@@ -44,5 +46,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`GamyGoGo activo en puerto ${PORT}`);
+    console.log(`Servidor GamyGoGo activo en el puerto ${PORT}`);
 });
