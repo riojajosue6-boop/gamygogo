@@ -7,8 +7,9 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static(__dirname));
 
-// RUTA PUENTE CORREGIDA: Desempaqueta el formato de GameMonetize correctamente
+// RUTA DIAGNÓSTICO: Nos va a mostrar el JSON real en pantalla
 app.get('/api/juegos', (req, res) => {
+    // Forzamos el formato JSON directo en la API de GameMonetize
     const url = 'https://gamemonetize.com/feed.php?format=json&page=1';
 
     https.get(url, (apiRes) => {
@@ -20,32 +21,22 @@ app.get('/api/juegos', (req, res) => {
 
         apiRes.on('end', () => {
             try {
-                const respuestaRaw = JSON.parse(data);
+                // Mandamos el texto crudo tal como llega de GameMonetize para analizarlo
+                const jsonParseado = JSON.parse(data);
                 
-                // DETECTAR Y DESEMPAQUETAR:
-                // Si la respuesta ya es una lista, la usamos. Si viene envuelta, extraemos la lista.
-                let listaJuegos = Array.isArray(respuestaRaw) ? respuestaRaw : [];
-                
-                if (!Array.isArray(respuestaRaw) && respuestaRaw.juegos) {
-                    listaJuegos = respuestaRaw.juegos;
-                } else if (!Array.isArray(respuestaRaw) && typeof respuestaRaw === 'object') {
-                    // Si viene como objeto con claves numéricas o propiedades, lo convertimos a Array
-                    listaJuegos = Object.values(respuestaRaw);
-                }
-
-                // Asegurar que solo mandamos elementos que tengan url y título válidos
-                const juegosLimpios = listaJuegos.filter(j => j && (j.url || j.id));
-
-                res.json(juegosLimpios);
+                // Si es un Array directo, genial. Si no, mandamos el objeto para ver sus nombres
+                res.json(jsonParseado);
             } catch (error) {
-                console.error('Error al procesar el JSON de GameMonetize:', error);
-                res.status(500).json({ error: 'Formato de datos inválido' });
+                // Si ni siquiera es un JSON válido, mostramos el texto plano roto
+                res.status(500).send({ 
+                    error: "GameMonetize no mandó un JSON válido", 
+                    loQueLlego: data.substring(0, 500) 
+                });
             }
         });
 
     }).on('error', (err) => {
-        console.error('Error en la conexión con GameMonetize:', err.message);
-        res.status(500).json({ error: 'No se pudo conectar con el proveedor' });
+        res.status(500).json({ error: 'Error de conexión', detalle: err.message });
     });
 });
 
@@ -54,5 +45,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`¡GamyGoGo corriendo en piloto automático en el puerto ${PORT}!`);
+    console.log(`Servidor GamyGoGo escuchando en puerto ${PORT}`);
 });
