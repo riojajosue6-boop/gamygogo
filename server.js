@@ -7,31 +7,45 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static(__dirname));
 
-// RUTA PUENTE: Conecta con la API JSON limpia de CrazyGames
+// RUTA PUENTE CORREGIDA
 app.get('/api/juegos', (req, res) => {
-    // API oficial y pública de CrazyGames para desarrolladores
-    const url = 'https://api.crazygames.com/v3/en/homepage/game-list';
+    // Usamos el feed de datos directo y optimizado de CrazyGames
+    const url = 'https://api.crazygames.com/v2/en/homepage/featured-games';
 
-    https.get(url, (apiRes) => {
+    const options = {
+        headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'application/json'
+        }
+    };
+
+    https.get(url, options, (apiRes) => {
         let data = '';
 
         apiRes.on('data', (chunk) => { data += chunk; });
 
         apiRes.on('end', () => {
             try {
+                // Si la respuesta no es un código exitoso, lanzamos error
+                if (apiRes.statusCode !== 200) {
+                    throw new Error(`Servidor respondió con código ${apiRes.statusCode}`);
+                }
+
                 const jsonData = JSON.parse(data);
                 const juegos = [];
 
-                // Validamos que la API traiga la lista de juegos
-                if (jsonData && jsonData.games) {
-                    // Tomamos los primeros 50 juegos del catálogo
-                    const listaJuegos = jsonData.games.slice(0, 50);
+                // Mapeamos la estructura de CrazyGames a lo que tu HTML necesita
+                if (jsonData && jsonData.games && jsonData.games.data) {
+                    // Tomamos los primeros 50 juegos destacados
+                    const listaJuegos = jsonData.games.data.slice(0, 50);
 
                     listaJuegos.forEach(game => {
                         juegos.push({
                             id: game.id || '',
                             title: game.name || 'Juego Gratis',
-                            thumb: game.images?.thumbnail || 'https://placehold.co/512x384/333/fff?text=Juego',
+                            // Usamos la miniatura mediana o grande disponible
+                            thumb: game.images?.thumbnail || game.images?.banner || 'https://placehold.co/512x384/333/fff?text=Juego',
+                            // URL para el iframe
                             url: game.url || `https://www.crazygames.com/embed/${game.slug}`
                         });
                     });
@@ -40,14 +54,14 @@ app.get('/api/juegos', (req, res) => {
                 res.json(juegos);
 
             } catch (error) {
-                console.error('Error al procesar JSON de CrazyGames:', error.message);
-                res.status(500).json({ error: 'Error interno en el procesamiento' });
+                console.error('Error al procesar datos de CrazyGames:', error.message);
+                res.status(500).json({ error: 'Error interno al procesar los juegos' });
             }
         });
 
     }).on('error', (err) => {
         console.error('Error de red con CrazyGames:', err.message);
-        res.status(500).json({ error: 'Error de conexión' });
+        res.status(500).json({ error: 'Error de conexión con el proveedor' });
     });
 });
 
@@ -56,5 +70,5 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`GamyGoGo versión CrazyGames activa en puerto ${PORT}`);
+    console.log(`GamyGoGo versión CrazyGames estable en puerto ${PORT}`);
 });
