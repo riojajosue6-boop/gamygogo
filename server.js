@@ -7,10 +7,10 @@ const PORT = process.env.PORT || 3000;
 
 app.use(express.static(__dirname));
 
-// RUTA PUENTE CORREGIDA
+// RUTA PUENTE ACTUALIZADA Y ESTABLE
 app.get('/api/juegos', (req, res) => {
-    // Usamos el feed de datos directo y optimizado de CrazyGames
-    const url = 'https://api.crazygames.com/v2/en/homepage/featured-games';
+    // Feed oficial de exportación de CrazyGames (JSON limpio)
+    const url = 'https://api.crazygames.com/v2/en/homepage/game-list';
 
     const options = {
         headers: {
@@ -26,27 +26,26 @@ app.get('/api/juegos', (req, res) => {
 
         apiRes.on('end', () => {
             try {
-                // Si la respuesta no es un código exitoso, lanzamos error
                 if (apiRes.statusCode !== 200) {
-                    throw new Error(`Servidor respondió con código ${apiRes.statusCode}`);
+                    throw new Error(`CrazyGames respondió con código ${apiRes.statusCode}`);
                 }
 
                 const jsonData = JSON.parse(data);
                 const juegos = [];
 
-                // Mapeamos la estructura de CrazyGames a lo que tu HTML necesita
-                if (jsonData && jsonData.games && jsonData.games.data) {
-                    // Tomamos los primeros 50 juegos destacados
-                    const listaJuegos = jsonData.games.data.slice(0, 50);
+                // Validamos la estructura del JSON de CrazyGames
+                if (jsonData && jsonData.games) {
+                    // Tomamos los primeros 50 juegos del catálogo
+                    const listaJuegos = jsonData.games.slice(0, 50);
 
                     listaJuegos.forEach(game => {
                         juegos.push({
                             id: game.id || '',
                             title: game.name || 'Juego Gratis',
-                            // Usamos la miniatura mediana o grande disponible
-                            thumb: game.images?.thumbnail || game.images?.banner || 'https://placehold.co/512x384/333/fff?text=Juego',
-                            // URL para el iframe
-                            url: game.url || `https://www.crazygames.com/embed/${game.slug}`
+                            // Obtenemos la miniatura de la imagen
+                            thumb: game.images?.thumbnail || 'https://placehold.co/512x384/333/fff?text=Juego',
+                            // Construimos la URL limpia para el iframe embed de CrazyGames
+                            url: game.slug ? `https://www.crazygames.com/embed/${game.slug}` : (game.url || '')
                         });
                     });
                 }
@@ -54,13 +53,13 @@ app.get('/api/juegos', (req, res) => {
                 res.json(juegos);
 
             } catch (error) {
-                console.error('Error al procesar datos de CrazyGames:', error.message);
+                console.error('Error al procesar datos:', error.message);
                 res.status(500).json({ error: 'Error interno al procesar los juegos' });
             }
         });
 
     }).on('error', (err) => {
-        console.error('Error de red con CrazyGames:', err.message);
+        console.error('Error de red:', err.message);
         res.status(500).json({ error: 'Error de conexión con el proveedor' });
     });
 });
